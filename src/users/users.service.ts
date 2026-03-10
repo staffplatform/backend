@@ -18,6 +18,24 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  async updateProfile(
+    userId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      birthDate?: Date | null;
+      avatarUrl?: string;
+      workCity?: string;
+      workAddress?: string;
+      companyAddress?: string;
+    }
+  ): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data
+    });
+  }
+
   async setRefreshTokenHash(userId: string, refreshTokenHash: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
