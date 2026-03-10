@@ -113,6 +113,7 @@ Global prefix: `/api`
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout` (Bearer access token)
 - `GET /api/users/me` (Bearer access token)
+- `PATCH /api/users/me` (Bearer access token)
 - `GET /api/health`
 
 ## 6. cURL examples
@@ -132,7 +133,8 @@ curl -X POST http://localhost:3000/api/auth/register \
     "email":"john@example.com",
     "password":"StrongPass123",
     "firstName":"John",
-    "lastName":"Doe"
+    "lastName":"Doe",
+    "birthDate":"1990-01-20"
   }'
 ```
 
@@ -162,6 +164,23 @@ curl -X POST http://localhost:3000/api/auth/refresh \
 ```bash
 curl -X GET http://localhost:3000/api/users/me \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+### Update profile
+
+```bash
+curl -X PATCH http://localhost:3000/api/users/me \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName":"Jane",
+    "lastName":"Smith",
+    "birthDate":"1992-07-14",
+    "avatarUrl":"https://cdn.example.com/avatars/jane.jpg",
+    "workCity":"Moscow",
+    "workAddress":"ул. Ленина, 10",
+    "companyAddress":"ул. Тверская, 7, офис 12"
+  }'
 ```
 
 ### Logout

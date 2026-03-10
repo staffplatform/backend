@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { PrismaService } from './database/prisma.service';
 
 function parseCorsOrigin(origin: string): string | string[] | boolean {
   if (origin === '*') {
@@ -21,11 +20,9 @@ function parseCorsOrigin(origin: string): string | string[] | boolean {
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
-  const prismaService = app.get(PrismaService);
 
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
-  await prismaService.enableShutdownHooks(app);
 
   app.useGlobalPipes(
     new ValidationPipe({
