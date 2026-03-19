@@ -56,6 +56,7 @@ export class AuthService {
       lastName: string | null;
       birthDate: Date | null;
       avatarUrl: string | null;
+      jobTitle: string | null;
       workCity: string | null;
       workAddress: string | null;
       companyAddress: string | null;
@@ -84,6 +85,7 @@ export class AuthService {
           lastName: user.lastName,
           birthDate: user.birthDate,
           avatarUrl: user.avatarUrl,
+          jobTitle: user.jobTitle,
           workCity: user.workCity,
           workAddress: user.workAddress,
           companyAddress: user.companyAddress
@@ -107,6 +109,7 @@ export class AuthService {
       lastName: string | null;
       birthDate: Date | null;
       avatarUrl: string | null;
+      jobTitle: string | null;
       workCity: string | null;
       workAddress: string | null;
       companyAddress: string | null;
@@ -134,6 +137,7 @@ export class AuthService {
         lastName: user.lastName,
         birthDate: user.birthDate,
         avatarUrl: user.avatarUrl,
+        jobTitle: user.jobTitle,
         workCity: user.workCity,
         workAddress: user.workAddress,
         companyAddress: user.companyAddress
