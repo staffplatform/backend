@@ -62,6 +62,7 @@ export class UsersController {
       lastName: dto.lastName,
       birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
       avatarUrl: dto.avatarUrl,
+      jobTitle: dto.jobTitle,
       workCity: dto.workCity,
       workAddress: dto.workAddress,
       companyAddress: dto.companyAddress
@@ -77,6 +78,7 @@ export class UsersController {
     lastName: string | null;
     birthDate: Date | null;
     avatarUrl: string | null;
+    jobTitle: string | null;
     workCity: string | null;
     workAddress: string | null;
     companyAddress: string | null;
@@ -90,6 +92,7 @@ export class UsersController {
       lastName: user.lastName,
       birthDate: user.birthDate,
       avatarUrl: user.avatarUrl,
+      jobTitle: user.jobTitle,
       workCity: user.workCity,
       workAddress: user.workAddress,
       companyAddress: user.companyAddress,
