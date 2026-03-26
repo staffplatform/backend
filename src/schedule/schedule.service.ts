@@ -2,8 +2,10 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ScheduleEntryType } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { StoresService } from '../stores/stores.service';
+import { DeleteScheduleEntryDto } from './dto/delete-schedule-entry.dto';
 import { GetScheduleMonthDto } from './dto/get-schedule-month.dto';
 import {
+  ScheduleEntryTypesResponseDto,
   ScheduleMonthResponseDto
 } from './dto/schedule-response.dto';
 import {
@@ -13,10 +15,22 @@ import {
 
 @Injectable()
 export class ScheduleService {
+  private readonly scheduleEntryTypes: ScheduleEntryTypesResponseDto['entryTypes'] = [
+    { value: ScheduleEntryType.SHIFT, label: 'Смена' },
+    { value: ScheduleEntryType.VACATION, label: 'Отпуск' },
+    { value: ScheduleEntryType.ABSENCE, label: 'Отсутствие' }
+  ];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storesService: StoresService
   ) {}
+
+  getEntryTypes(): ScheduleEntryTypesResponseDto {
+    return {
+      entryTypes: this.scheduleEntryTypes
+    };
+  }
 
   async getMonth(
     actorId: string,
@@ -24,6 +38,7 @@ export class ScheduleService {
   ): Promise<ScheduleMonthResponseDto> {
     const store = await this.storesService.getStoreForUser(dto.storeId, actorId);
     const { monthStart, nextMonthStart, daysInMonth } = this.getMonthBounds(dto.year, dto.month);
+    this.ensureMonthIsAvailable(store.activeFrom, nextMonthStart);
 
     const [employees, entries] = await Promise.all([
       this.prisma.storeEmployee.findMany({
@@ -64,7 +79,8 @@ export class ScheduleService {
         companyId: store.companyId,
         name: store.name,
         city: store.city,
-        address: store.address
+        address: store.address,
+        activeFrom: store.activeFrom
       },
       year: dto.year,
       month: dto.month,
@@ -97,6 +113,7 @@ export class ScheduleService {
   ): Promise<ScheduleMonthResponseDto> {
     const store = await this.storesService.ensureStoreManager(dto.storeId, actorId);
     const { monthStart, nextMonthStart } = this.getMonthBounds(dto.year, dto.month);
+    this.ensureMonthIsAvailable(store.activeFrom, nextMonthStart);
     const uniqueUserIds = [...new Set(dto.entries.map((entry) => entry.userId))];
 
     if (uniqueUserIds.length > 0) {
@@ -123,7 +140,16 @@ export class ScheduleService {
     }
 
     await this.prisma.$transaction(
-      dto.entries.map((entry) => this.buildScheduleMutation(store.id, actorId, entry, monthStart, nextMonthStart))
+      dto.entries.map((entry) =>
+        this.buildScheduleMutation(
+          store.id,
+          actorId,
+          entry,
+          monthStart,
+          nextMonthStart,
+          store.activeFrom
+        )
+      )
     );
 
     return this.getMonth(actorId, {
@@ -133,18 +159,52 @@ export class ScheduleService {
     });
   }
 
+  async deleteEntry(actorId: string, dto: DeleteScheduleEntryDto): Promise<void> {
+    const store = await this.storesService.ensureStoreManager(dto.storeId, actorId);
+    const date = this.parseDateOnly(dto.date);
+
+    this.ensureDateIsAvailable(date, store.activeFrom);
+
+    const assignment = await this.prisma.storeEmployee.findUnique({
+      where: {
+        storeId_userId: {
+          storeId: store.id,
+          userId: dto.userId
+        }
+      },
+      select: {
+        userId: true
+      }
+    });
+
+    if (!assignment) {
+      throw new BadRequestException(`User ${dto.userId} is not assigned to this store`);
+    }
+
+    await this.prisma.scheduleEntry.deleteMany({
+      where: {
+        storeId: store.id,
+        userId: dto.userId,
+        date
+      }
+    });
+  }
+
   private buildScheduleMutation(
     storeId: string,
     actorId: string,
     entry: ScheduleEntryChangeDto,
     monthStart: Date,
-    nextMonthStart: Date
+    nextMonthStart: Date,
+    activeFrom: Date
   ) {
     const date = this.parseDateOnly(entry.date);
 
     if (date < monthStart || date >= nextMonthStart) {
       throw new BadRequestException('Entry date must belong to the requested month');
     }
+
+    this.ensureDateIsAvailable(date, activeFrom);
 
     if (entry.clear) {
       return this.prisma.scheduleEntry.deleteMany({
@@ -232,5 +292,21 @@ export class ScheduleService {
 
   private formatDate(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private ensureMonthIsAvailable(activeFrom: Date, nextMonthStart: Date): void {
+    if (nextMonthStart <= activeFrom) {
+      throw new BadRequestException(
+        `Schedule is available starting from ${this.formatDate(activeFrom)}`
+      );
+    }
+  }
+
+  private ensureDateIsAvailable(date: Date, activeFrom: Date): void {
+    if (date < activeFrom) {
+      throw new BadRequestException(
+        `Entry date must be on or after ${this.formatDate(activeFrom)}`
+      );
+    }
   }
 }

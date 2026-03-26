@@ -16,6 +16,9 @@ export class StoreDto {
   @ApiPropertyOptional()
   address!: string | null;
 
+  @ApiProperty({ example: '2026-03-01' })
+  activeFrom!: Date;
+
   @ApiProperty()
   employeesCount!: number;
 

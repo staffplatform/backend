@@ -111,27 +111,34 @@ const seedStores = [
   {
     name: 'Acme Tverskaya',
     city: 'Moscow',
-    address: 'ул. Тверская, 7'
+    address: 'ул. Тверская, 7',
+    activeFrom: new Date('2026-03-01')
   },
   {
     name: 'Acme Arbat',
     city: 'Moscow',
-    address: 'ул. Арбат, 12'
+    address: 'ул. Арбат, 12',
+    activeFrom: new Date('2026-03-01')
   },
   {
     name: 'Acme Sokolniki',
     city: 'Moscow',
-    address: 'Сокольническая площадь, 4'
+    address: 'Сокольническая площадь, 4',
+    activeFrom: new Date('2026-03-01')
   }
 ];
 
-function getCurrentMonthShiftDates(): string[] {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
+const seededScheduleMonths = [
+  { year: 2026, month: 3 },
+  { year: 2026, month: 4 },
+  { year: 2026, month: 5 }
+] as const;
 
-  return [2, 4, 6, 9, 11].map((day) =>
-    new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10)
+function getMonthDates(year: number, month: number): string[] {
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  return Array.from({ length: daysInMonth }, (_, index) =>
+    new Date(Date.UTC(year, month - 1, index + 1)).toISOString().slice(0, 10)
   );
 }
 
@@ -144,6 +151,111 @@ function getShiftWindow(index: number): { startTime: string; endTime: string } {
   ];
 
   return windows[index % windows.length];
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+
+  for (const char of value) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+
+  return hash;
+}
+
+function buildRandomizedScheduleEntry(
+  date: string,
+  storeName: string,
+  employeeEmail: string,
+  jobTitle: string
+): {
+  type: ScheduleEntryType;
+  startTime: string | null;
+  endTime: string | null;
+  comment: string;
+} | null {
+  const dayOfWeek = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  const seed = hashString(`${storeName}:${employeeEmail}:${date}`);
+
+  if (dayOfWeek === 0 && seed % 4 !== 0) {
+    return null;
+  }
+
+  if (dayOfWeek === 6 && seed % 5 === 0) {
+    return null;
+  }
+
+  if (seed % 19 === 0) {
+    return {
+      type: ScheduleEntryType.VACATION,
+      startTime: null,
+      endTime: null,
+      comment: 'Planned vacation'
+    };
+  }
+
+  if (seed % 31 === 0) {
+    return {
+      type: ScheduleEntryType.ABSENCE,
+      startTime: null,
+      endTime: null,
+      comment: 'Personal day'
+    };
+  }
+
+  const windows = [
+    { startTime: '07:00', endTime: '16:00' },
+    { startTime: '08:00', endTime: '17:00' },
+    { startTime: '09:00', endTime: '18:00' },
+    { startTime: '10:00', endTime: '19:00' },
+    { startTime: '11:00', endTime: '20:00' }
+  ];
+  const shiftWindow = windows[seed % windows.length];
+
+  return {
+    type: ScheduleEntryType.SHIFT,
+    startTime: shiftWindow.startTime,
+    endTime: shiftWindow.endTime,
+    comment: `${storeName} ${jobTitle} shift`
+  };
+}
+
+async function upsertScheduleEntry(params: {
+  storeId: string;
+  userId: string;
+  date: string;
+  createdById: string;
+  type: ScheduleEntryType;
+  startTime: string | null;
+  endTime: string | null;
+  comment: string;
+}): Promise<void> {
+  await prisma.scheduleEntry.upsert({
+    where: {
+      storeId_userId_date: {
+        storeId: params.storeId,
+        userId: params.userId,
+        date: new Date(`${params.date}T00:00:00.000Z`)
+      }
+    },
+    update: {
+      type: params.type,
+      startTime: params.startTime,
+      endTime: params.endTime,
+      comment: params.comment,
+      createdById: params.createdById
+    },
+    create: {
+      storeId: params.storeId,
+      userId: params.userId,
+      date: new Date(`${params.date}T00:00:00.000Z`),
+      type: params.type,
+      startTime: params.startTime,
+      endTime: params.endTime,
+      comment: params.comment,
+      createdById: params.createdById
+    }
+  });
 }
 
 async function main(): Promise<void> {
@@ -215,7 +327,9 @@ async function main(): Promise<void> {
     }
   });
 
-  const scheduleDates = getCurrentMonthShiftDates();
+  const scheduleDates = seededScheduleMonths.flatMap(({ year, month }) =>
+    getMonthDates(year, month)
+  );
   const stores = await Promise.all(
     seedStores.map(async (seedStore, index) => {
       const existingStore = await prisma.store.findFirst({
@@ -234,7 +348,8 @@ async function main(): Promise<void> {
             data: {
               name: seedStore.name,
               city: seedStore.city,
-              address: seedStore.address
+              address: seedStore.address,
+              activeFrom: seedStore.activeFrom
             }
           })
         : await prisma.store.create({
@@ -242,7 +357,8 @@ async function main(): Promise<void> {
               companyId: company.id,
               name: seedStore.name,
               city: seedStore.city,
-              address: seedStore.address
+              address: seedStore.address,
+              activeFrom: seedStore.activeFrom
             }
           });
 
@@ -260,50 +376,32 @@ async function main(): Promise<void> {
         }
       });
 
-      await Promise.all(
-        scheduleDates.map((date) =>
-          prisma.scheduleEntry.upsert({
-            where: {
-              storeId_userId_date: {
-                storeId: store.id,
-                userId: user.id,
-                date: new Date(`${date}T00:00:00.000Z`)
-              }
-            },
-            update: {
-              type: ScheduleEntryType.SHIFT,
-              startTime: index === 0 ? '09:00' : index === 1 ? '10:00' : '11:00',
-              endTime: index === 0 ? '18:00' : index === 1 ? '19:00' : '20:00',
-              comment: `${seedStore.name} test shift`,
-              createdById: user.id
-            },
-            create: {
-              storeId: store.id,
-              userId: user.id,
-              date: new Date(`${date}T00:00:00.000Z`),
-              type: ScheduleEntryType.SHIFT,
-              startTime: index === 0 ? '09:00' : index === 1 ? '10:00' : '11:00',
-              endTime: index === 0 ? '18:00' : index === 1 ? '19:00' : '20:00',
-              comment: `${seedStore.name} test shift`,
-              createdById: user.id
-            }
-          })
-        )
-      );
-
       return store;
     })
   );
 
   const storeByName = new Map(stores.map((store) => [store.name, store]));
 
-  const allUsers = [{ ...seedUser, companyRole: CompanyRole.OWNER, storeNames: seedStores.map((store) => store.name) }, ...seedEmployees];
+  await prisma.scheduleEntry.deleteMany({
+    where: {
+      storeId: {
+        in: stores.map((store) => store.id)
+      }
+    }
+  });
+
+  const allUsers = [
+    {
+      ...seedUser,
+      companyRole: CompanyRole.OWNER,
+      storeNames: seedStores.map((store) => store.name)
+    },
+    ...seedEmployees
+  ];
 
   for (const [userIndex, employee] of allUsers.entries()) {
     const employeePasswordHash =
-      employee.email === seedUser.email
-        ? passwordHash
-        : await bcrypt.hash(employee.password, 10);
+      employee.email === seedUser.email ? passwordHash : await bcrypt.hash(employee.password, 10);
 
     const companyUser = await prisma.user.upsert({
       where: { email: employee.email },
@@ -370,37 +468,30 @@ async function main(): Promise<void> {
         }
       });
 
-      const shiftWindow = getShiftWindow(userIndex);
-
       await Promise.all(
-        scheduleDates.map((date) =>
-          prisma.scheduleEntry.upsert({
-            where: {
-              storeId_userId_date: {
-                storeId: store.id,
-                userId: companyUser.id,
-                date: new Date(`${date}T00:00:00.000Z`)
-              }
-            },
-            update: {
-              type: ScheduleEntryType.SHIFT,
-              startTime: shiftWindow.startTime,
-              endTime: shiftWindow.endTime,
-              comment: `${store.name} ${employee.jobTitle} shift`,
-              createdById: user.id
-            },
-            create: {
-              storeId: store.id,
-              userId: companyUser.id,
-              date: new Date(`${date}T00:00:00.000Z`),
-              type: ScheduleEntryType.SHIFT,
-              startTime: shiftWindow.startTime,
-              endTime: shiftWindow.endTime,
-              comment: `${store.name} ${employee.jobTitle} shift`,
-              createdById: user.id
-            }
-          })
-        )
+        scheduleDates.map(async (date) => {
+          const scheduleEntry = buildRandomizedScheduleEntry(
+            date,
+            store.name,
+            employee.email,
+            employee.jobTitle
+          );
+
+          if (!scheduleEntry) {
+            return;
+          }
+
+          await upsertScheduleEntry({
+            storeId: store.id,
+            userId: companyUser.id,
+            date,
+            createdById: user.id,
+            type: scheduleEntry.type,
+            startTime: scheduleEntry.startTime,
+            endTime: scheduleEntry.endTime,
+            comment: scheduleEntry.comment
+          });
+        })
       );
     }
   }
@@ -422,7 +513,9 @@ async function main(): Promise<void> {
   console.log(`Company: ${company.name}`);
   console.log(`Stores: ${stores.map((store) => store.name).join(', ')}`);
   console.log(`Store employee counts: ${storeEmployeeCounts.join(', ')}`);
-  console.log(`Schedule dates: ${scheduleDates.join(', ')}`);
+  console.log(
+    `Schedule months: ${seededScheduleMonths.map(({ year, month }) => `${year}-${String(month).padStart(2, '0')}`).join(', ')}`
+  );
 }
 
 main()

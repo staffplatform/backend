@@ -80,6 +80,7 @@ model Store {
   name      String
   city      String?
   address   String?
+  activeFrom DateTime @db.Date
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

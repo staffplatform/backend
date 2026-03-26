@@ -133,6 +133,8 @@ Global prefix: `/api`
 - `GET /api/companies/current` (Bearer access token)
 - `GET /api/stores/my` (Bearer access token)
 - `GET /api/schedule/month` (Bearer access token)
+- `PUT /api/schedule/month` (Bearer access token)
+- `DELETE /api/schedule/entry` (Bearer access token)
 - `GET /api/health`
 
 ## 6. cURL examples
@@ -203,12 +205,28 @@ curl -X PATCH http://localhost:3000/api/users/me \
   }'
 ```
 
+### Create store
+
+```bash
+curl -X POST http://localhost:3000/api/companies/<COMPANY_ID>/stores \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name":"Aviapark",
+    "city":"Moscow",
+    "address":"Ходынский бульвар, 4",
+    "activeFrom":"2026-04-01"
+  }'
+```
+
 ### Schedule month
 
 ```bash
-curl -X GET "http://localhost:3000/api/schedule/month?storeId=<STORE_ID>&year=2026&month=3" \
+curl -X GET "http://localhost:3000/api/schedule/month?storeId=<STORE_ID>&year=2026&month=4" \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
+
+`store.activeFrom` in the response defines the earliest available schedule date for the store.
 
 `employees` in the schedule response include:
 - `userId`
@@ -217,6 +235,57 @@ curl -X GET "http://localhost:3000/api/schedule/month?storeId=<STORE_ID>&year=20
 - `lastName`
 - `avatarUrl`
 - `jobTitle`
+
+### Schedule entry types
+
+```bash
+curl -X GET "http://localhost:3000/api/schedule/types" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+Response example:
+
+```json
+{
+  "entryTypes": [
+    { "value": "SHIFT", "label": "Смена" },
+    { "value": "VACATION", "label": "Отпуск" },
+    { "value": "ABSENCE", "label": "Отсутствие" }
+  ]
+}
+```
+
+### Update schedule month
+
+```bash
+curl -X PUT "http://localhost:3000/api/schedule/month" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storeId":"<STORE_ID>",
+    "year":2026,
+    "month":4,
+    "entries":[
+      {
+        "userId":"<USER_ID>",
+        "date":"2026-04-15",
+        "type":"SHIFT",
+        "startTime":"09:00",
+        "endTime":"18:00",
+        "comment":"Открытие смены"
+      }
+    ]
+  }'
+```
+
+To clear an entry through the bulk update endpoint, send `"clear": true` for the target `userId` and `date`.
+
+### Delete schedule entry
+
+```bash
+curl -X DELETE "http://localhost:3000/api/schedule/entry?storeId=<STORE_ID>&userId=<USER_ID>&date=2026-04-15" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
 
 ### Logout
 

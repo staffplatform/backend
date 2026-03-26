@@ -29,7 +29,8 @@ export class StoresService {
         companyId,
         name: dto.name,
         city: dto.city,
-        address: dto.address
+        address: dto.address,
+        activeFrom: this.toUtcDateOnly(dto.activeFrom)
       },
       include: {
         _count: {
@@ -200,6 +201,7 @@ export class StoresService {
     name: string;
     city: string | null;
     address: string | null;
+    activeFrom: Date;
     createdAt: Date;
     updatedAt: Date;
     _count: {
@@ -212,10 +214,15 @@ export class StoresService {
       name: store.name,
       city: store.city,
       address: store.address,
+      activeFrom: store.activeFrom,
       employeesCount: store._count.employees,
       createdAt: store.createdAt,
       updatedAt: store.updatedAt
     };
+  }
+
+  private toUtcDateOnly(value: Date): Date {
+    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
   }
 
   private isUniqueConstraintError(error: unknown): boolean {

@@ -1,6 +1,19 @@
 import { ScheduleEntryType } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class ScheduleEntryTypeDto {
+  @ApiProperty({ enum: ScheduleEntryType })
+  value!: ScheduleEntryType;
+
+  @ApiProperty({ example: 'Смена' })
+  label!: string;
+}
+
+export class ScheduleEntryTypesResponseDto {
+  @ApiProperty({ type: ScheduleEntryTypeDto, isArray: true })
+  entryTypes!: ScheduleEntryTypeDto[];
+}
+
 export class ScheduleStoreDto {
   @ApiProperty()
   id!: string;
@@ -16,6 +29,9 @@ export class ScheduleStoreDto {
 
   @ApiPropertyOptional()
   address!: string | null;
+
+  @ApiProperty({ example: '2026-03-01' })
+  activeFrom!: Date;
 }
 
 export class ScheduleEmployeeDto {
