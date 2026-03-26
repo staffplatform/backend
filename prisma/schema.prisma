@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum CompanyRole {
+  OWNER
+  MANAGER
+  EMPLOYEE
+}
+
+enum ScheduleEntryType {
+  SHIFT
+  VACATION
+  ABSENCE
+}
+
 model User {
   id               String   @id @default(uuid())
   email            String   @unique
@@ -15,6 +27,7 @@ model User {
   lastName         String?
   birthDate        DateTime?
   avatarUrl        String?
+  jobTitle         String?
   workCity         String?
   workAddress      String?
   companyAddress   String?
@@ -22,5 +35,96 @@ model User {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  ownedCompanies        Company[]        @relation("CompanyOwner")
+  companyMemberships    CompanyMember[]
+  storeAssignments      StoreEmployee[]
+  scheduleEntries       ScheduleEntry[]  @relation("EmployeeScheduleEntries")
+  createdScheduleEntries ScheduleEntry[] @relation("ScheduleEntryCreatedBy")
+
   @@map("users")
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner   User            @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members CompanyMember[]
+  stores  Store[]
+
+  @@map("companies")
+}
+
+model CompanyMember {
+  id        String      @id @default(uuid())
+  companyId String
+  userId    String      @unique
+  role      CompanyRole @default(EMPLOYEE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@map("company_members")
+}
+
+model Store {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  city      String?
+  address   String?
+  activeFrom DateTime @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees       StoreEmployee[]
+  scheduleEntries ScheduleEntry[]
+
+  @@index([companyId])
+  @@map("stores")
+}
+
+model StoreEmployee {
+  id        String   @id @default(uuid())
+  storeId    String
+  userId     String
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, userId])
+  @@index([userId])
+  @@map("store_employees")
+}
+
+model ScheduleEntry {
+  id          String            @id @default(uuid())
+  storeId      String
+  userId       String
+  date         DateTime         @db.Date
+  type         ScheduleEntryType
+  startTime    String?
+  endTime      String?
+  comment      String?
+  createdById  String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  store     Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user      User  @relation("EmployeeScheduleEntries", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("ScheduleEntryCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, userId, date])
+  @@index([storeId, date])
+  @@index([userId, date])
+  @@map("schedule_entries")
 }

@@ -87,7 +87,7 @@ API will be available at:
 Startup command inside API container:
 1. `prisma generate`
 2. `prisma migrate deploy`
-3. `node dist/main`
+3. `node dist/src/main.js`
 
 ## 4. Local development (without Docker)
 
@@ -102,7 +102,22 @@ Useful commands:
 - `npm run start:dev`
 - `npm run start:prod`
 - `npm run prisma:migrate`
+- `npm run prisma:deploy`
+- `npm run db:seed`
 - `npm run prisma:studio`
+
+Test seed data:
+- user: `employee@example.com`
+- password: `StrongPass123`
+- jobTitle: `Barista`
+- company: `Acme Staff Platform`
+- store: `Acme Tverskaya`
+
+Current access model:
+- one user belongs to one company
+- one user can be assigned to multiple stores within that company
+- `GET /api/companies/current` returns the current user's company
+- `GET /api/stores/my` returns the current user's stores
 
 ## 5. API endpoints
 
@@ -114,6 +129,12 @@ Global prefix: `/api`
 - `POST /api/auth/logout` (Bearer access token)
 - `GET /api/users/me` (Bearer access token)
 - `PATCH /api/users/me` (Bearer access token)
+- `GET /api/companies` (Bearer access token)
+- `GET /api/companies/current` (Bearer access token)
+- `GET /api/stores/my` (Bearer access token)
+- `GET /api/schedule/month` (Bearer access token)
+- `PUT /api/schedule/month` (Bearer access token)
+- `DELETE /api/schedule/entry` (Bearer access token)
 - `GET /api/health`
 
 ## 6. cURL examples
@@ -177,10 +198,93 @@ curl -X PATCH http://localhost:3000/api/users/me \
     "lastName":"Smith",
     "birthDate":"1992-07-14",
     "avatarUrl":"https://cdn.example.com/avatars/jane.jpg",
+    "jobTitle":"Barista",
     "workCity":"Moscow",
     "workAddress":"ул. Ленина, 10",
     "companyAddress":"ул. Тверская, 7, офис 12"
   }'
+```
+
+### Create store
+
+```bash
+curl -X POST http://localhost:3000/api/companies/<COMPANY_ID>/stores \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name":"Aviapark",
+    "city":"Moscow",
+    "address":"Ходынский бульвар, 4",
+    "activeFrom":"2026-04-01"
+  }'
+```
+
+### Schedule month
+
+```bash
+curl -X GET "http://localhost:3000/api/schedule/month?storeId=<STORE_ID>&year=2026&month=4" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+`store.activeFrom` in the response defines the earliest available schedule date for the store.
+
+`employees` in the schedule response include:
+- `userId`
+- `email`
+- `firstName`
+- `lastName`
+- `avatarUrl`
+- `jobTitle`
+
+### Schedule entry types
+
+```bash
+curl -X GET "http://localhost:3000/api/schedule/types" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+Response example:
+
+```json
+{
+  "entryTypes": [
+    { "value": "SHIFT", "label": "Смена" },
+    { "value": "VACATION", "label": "Отпуск" },
+    { "value": "ABSENCE", "label": "Отсутствие" }
+  ]
+}
+```
+
+### Update schedule month
+
+```bash
+curl -X PUT "http://localhost:3000/api/schedule/month" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storeId":"<STORE_ID>",
+    "year":2026,
+    "month":4,
+    "entries":[
+      {
+        "userId":"<USER_ID>",
+        "date":"2026-04-15",
+        "type":"SHIFT",
+        "startTime":"09:00",
+        "endTime":"18:00",
+        "comment":"Открытие смены"
+      }
+    ]
+  }'
+```
+
+To clear an entry through the bulk update endpoint, send `"clear": true` for the target `userId` and `date`.
+
+### Delete schedule entry
+
+```bash
+curl -X DELETE "http://localhost:3000/api/schedule/entry?storeId=<STORE_ID>&userId=<USER_ID>&date=2026-04-15" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
 ### Logout

@@ -23,6 +23,9 @@ export class UserProfileDto {
   @ApiPropertyOptional({ example: 'https://cdn.example.com/avatars/john.jpg' })
   avatarUrl?: string | null;
 
+  @ApiPropertyOptional({ example: 'Barista' })
+  jobTitle?: string | null;
+
   @ApiPropertyOptional({ example: 'Moscow' })
   workCity?: string | null;
 

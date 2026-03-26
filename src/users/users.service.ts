@@ -25,6 +25,7 @@ export class UsersService {
       lastName?: string;
       birthDate?: Date | null;
       avatarUrl?: string;
+      jobTitle?: string;
       workCity?: string;
       workAddress?: string;
       companyAddress?: string;

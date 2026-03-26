@@ -29,6 +29,14 @@ export class UpdateProfileDto {
   avatarUrl?: string;
 
   @ApiPropertyOptional({
+    example: 'Barista',
+    description: 'Должность сотрудника'
+  })
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
+
+  @ApiPropertyOptional({
     example: 'Moscow',
     description: 'Город, где сотрудник работает'
   })
