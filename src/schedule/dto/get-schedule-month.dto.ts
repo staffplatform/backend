@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsUUID, Max, Min } from 'class-validator';
+import { IsInt, IsUUID, Matches, Max, Min } from 'class-validator';
 
 export class GetScheduleMonthDto {
   @ApiProperty()
@@ -20,4 +20,16 @@ export class GetScheduleMonthDto {
   @Min(1)
   @Max(12)
   month!: number;
+}
+
+export class GetScheduleWeekDto {
+  @ApiProperty()
+  @IsUUID()
+  storeId!: string;
+
+  @ApiProperty({ example: '2026-03-26' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'week must be a valid date in YYYY-MM-DD format'
+  })
+  week!: string;
 }

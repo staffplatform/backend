@@ -134,6 +134,44 @@ const seededScheduleMonths = [
   { year: 2026, month: 5 }
 ] as const;
 
+const overlappingShiftDemoEntries = new Map<
+  string,
+  {
+    type: ScheduleEntryType;
+    startTime: string | null;
+    endTime: string | null;
+    comment: string;
+  }
+>([
+  [
+    '2026-03-31:Acme Tverskaya:employee@example.com',
+    {
+      type: ScheduleEntryType.SHIFT,
+      startTime: '09:00',
+      endTime: '18:00',
+      comment: 'Shared opening shift demo'
+    }
+  ],
+  [
+    '2026-03-31:Acme Tverskaya:anna.manager@example.com',
+    {
+      type: ScheduleEntryType.SHIFT,
+      startTime: '09:00',
+      endTime: '18:00',
+      comment: 'Shared opening shift demo'
+    }
+  ],
+  [
+    '2026-03-31:Acme Tverskaya:maria.barista@example.com',
+    {
+      type: ScheduleEntryType.SHIFT,
+      startTime: '09:00',
+      endTime: '18:00',
+      comment: 'Shared opening shift demo'
+    }
+  ]
+]);
+
 function getMonthDates(year: number, month: number): string[] {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
@@ -174,6 +212,12 @@ function buildRandomizedScheduleEntry(
   endTime: string | null;
   comment: string;
 } | null {
+  const forcedEntry = overlappingShiftDemoEntries.get(`${date}:${storeName}:${employeeEmail}`);
+
+  if (forcedEntry) {
+    return forcedEntry;
+  }
+
   const dayOfWeek = new Date(`${date}T00:00:00.000Z`).getUTCDay();
   const seed = hashString(`${storeName}:${employeeEmail}:${date}`);
 

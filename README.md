@@ -1,6 +1,7 @@
 # StaffPlatform (NestJS)
 
 Production-ready skeleton for StaffPlatform backend with:
+
 - NestJS + TypeScript
 - PostgreSQL + Prisma
 - JWT access/refresh auth
@@ -67,6 +68,7 @@ cp .env.example .env
 ```
 
 Important variables:
+
 - `DATABASE_URL`
 - `JWT_ACCESS_SECRET`
 - `JWT_REFRESH_SECRET`
@@ -81,10 +83,12 @@ docker compose up --build
 ```
 
 API will be available at:
+
 - `http://localhost:3000/api`
 - Swagger: `http://localhost:3000/docs`
 
 Startup command inside API container:
+
 1. `prisma generate`
 2. `prisma migrate deploy`
 3. `node dist/src/main.js`
@@ -99,6 +103,7 @@ npm run start:dev
 ```
 
 Useful commands:
+
 - `npm run start:dev`
 - `npm run start:prod`
 - `npm run prisma:migrate`
@@ -107,6 +112,7 @@ Useful commands:
 - `npm run prisma:studio`
 
 Test seed data:
+
 - user: `employee@example.com`
 - password: `StrongPass123`
 - jobTitle: `Barista`
@@ -114,6 +120,7 @@ Test seed data:
 - store: `Acme Tverskaya`
 
 Current access model:
+
 - one user belongs to one company
 - one user can be assigned to multiple stores within that company
 - `GET /api/companies/current` returns the current user's company
@@ -133,6 +140,7 @@ Global prefix: `/api`
 - `GET /api/companies/current` (Bearer access token)
 - `GET /api/stores/my` (Bearer access token)
 - `GET /api/schedule/month` (Bearer access token)
+- `GET /api/schedule/week` (Bearer access token)
 - `PUT /api/schedule/month` (Bearer access token)
 - `DELETE /api/schedule/entry` (Bearer access token)
 - `GET /api/health`
@@ -226,15 +234,33 @@ curl -X GET "http://localhost:3000/api/schedule/month?storeId=<STORE_ID>&year=20
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
+### Schedule week
+
+```bash
+curl -X GET "http://localhost:3000/api/schedule/week?storeId=<STORE_ID>&week=2026-03-26" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+`week` accepts any date inside the requested week. The backend resolves it to a Monday-Sunday range and returns:
+
+- `week`
+- `weekStart`
+- `weekEnd`
+- `employees`
+- `entries`
+
 `store.activeFrom` in the response defines the earliest available schedule date for the store.
 
 `employees` in the schedule response include:
+
 - `userId`
 - `email`
 - `firstName`
 - `lastName`
 - `avatarUrl`
 - `jobTitle`
+
+`entries` is a flat list of employee assignments. Multiple entries can have the same `date`, `startTime`, and `endTime` as long as they belong to different `userId` values. In other words, several employees can be scheduled for the same shift window on the same day.
 
 ### Schedule entry types
 
@@ -267,7 +293,39 @@ curl -X PUT "http://localhost:3000/api/schedule/month" \
     "month":4,
     "entries":[
       {
-        "userId":"<USER_ID>",
+        "userId":"<USER_ID_1>",
+        "date":"2026-04-15",
+        "type":"SHIFT",
+        "startTime":"09:00",
+        "endTime":"18:00",
+        "comment":"Открытие смены"
+      },
+      {
+        "userId":"<USER_ID_2>",
+        "date":"2026-04-15",
+        "type":"SHIFT",
+        "startTime":"09:00",
+        "endTime":"18:00",
+        "comment":"Открытие смены второй сотрудник"
+      }
+    ]
+  }'
+```
+
+To clear an entry through the bulk update endpoint, send `"clear": true` for the target `userId` and `date`.
+
+### Update schedule week
+
+```bash
+curl -X PUT "http://localhost:3000/api/schedule/week" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storeId":"<STORE_ID>",
+    "week":"2026-04-15",
+    "entries":[
+      {
+        "userId":"<USER_ID_1>",
         "date":"2026-04-15",
         "type":"SHIFT",
         "startTime":"09:00",
@@ -278,7 +336,7 @@ curl -X PUT "http://localhost:3000/api/schedule/month" \
   }'
 ```
 
-To clear an entry through the bulk update endpoint, send `"clear": true` for the target `userId` and `date`.
+`week` accepts any date inside the requested week. The backend resolves it to a Monday-Sunday range and applies changes only within that week.
 
 ### Delete schedule entry
 

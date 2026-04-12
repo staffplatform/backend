@@ -19,12 +19,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetCurrentUser } from '../common/decorators/get-current-user.decorator';
 import { RequestUser } from '../common/interfaces/request-with-user.interface';
 import { DeleteScheduleEntryDto } from './dto/delete-schedule-entry.dto';
-import { GetScheduleMonthDto } from './dto/get-schedule-month.dto';
+import { GetScheduleMonthDto, GetScheduleWeekDto } from './dto/get-schedule-month.dto';
 import {
   ScheduleEntryTypesResponseDto,
-  ScheduleMonthResponseDto
+  ScheduleMonthResponseDto,
+  ScheduleWeekResponseDto
 } from './dto/schedule-response.dto';
-import { UpdateMonthlyScheduleDto } from './dto/update-monthly-schedule.dto';
+import {
+  UpdateMonthlyScheduleDto,
+  UpdateWeeklyScheduleDto
+} from './dto/update-monthly-schedule.dto';
 import { ScheduleService } from './schedule.service';
 
 @ApiTags('schedule')
@@ -49,6 +53,15 @@ export class ScheduleController {
     return this.scheduleService.getMonth(currentUser.sub, dto);
   }
 
+  @Get('week')
+  @ApiOkResponse({ type: ScheduleWeekResponseDto })
+  async getWeek(
+    @GetCurrentUser() currentUser: RequestUser,
+    @Query() dto: GetScheduleWeekDto
+  ): Promise<ScheduleWeekResponseDto> {
+    return this.scheduleService.getWeek(currentUser.sub, dto);
+  }
+
   @Put('month')
   @ApiOkResponse({ type: ScheduleMonthResponseDto })
   async updateMonth(
@@ -56,6 +69,15 @@ export class ScheduleController {
     @Body() dto: UpdateMonthlyScheduleDto
   ): Promise<ScheduleMonthResponseDto> {
     return this.scheduleService.updateMonth(currentUser.sub, dto);
+  }
+
+  @Put('week')
+  @ApiOkResponse({ type: ScheduleWeekResponseDto })
+  async updateWeek(
+    @GetCurrentUser() currentUser: RequestUser,
+    @Body() dto: UpdateWeeklyScheduleDto
+  ): Promise<ScheduleWeekResponseDto> {
+    return this.scheduleService.updateWeek(currentUser.sub, dto);
   }
 
   @Delete('entry')

@@ -3,14 +3,19 @@ import { ScheduleEntryType } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { StoresService } from '../stores/stores.service';
 import { DeleteScheduleEntryDto } from './dto/delete-schedule-entry.dto';
-import { GetScheduleMonthDto } from './dto/get-schedule-month.dto';
+import { GetScheduleMonthDto, GetScheduleWeekDto } from './dto/get-schedule-month.dto';
 import {
   ScheduleEntryTypesResponseDto,
-  ScheduleMonthResponseDto
+  ScheduleEmployeeDto,
+  ScheduleEntryDto,
+  ScheduleMonthResponseDto,
+  ScheduleStoreDto,
+  ScheduleWeekResponseDto
 } from './dto/schedule-response.dto';
 import {
   ScheduleEntryChangeDto,
-  UpdateMonthlyScheduleDto
+  UpdateMonthlyScheduleDto,
+  UpdateWeeklyScheduleDto
 } from './dto/update-monthly-schedule.dto';
 
 @Injectable()
@@ -32,78 +37,36 @@ export class ScheduleService {
     };
   }
 
-  async getMonth(
-    actorId: string,
-    dto: GetScheduleMonthDto
-  ): Promise<ScheduleMonthResponseDto> {
+  async getMonth(actorId: string, dto: GetScheduleMonthDto): Promise<ScheduleMonthResponseDto> {
     const store = await this.storesService.getStoreForUser(dto.storeId, actorId);
     const { monthStart, nextMonthStart, daysInMonth } = this.getMonthBounds(dto.year, dto.month);
     this.ensureMonthIsAvailable(store.activeFrom, nextMonthStart);
-
-    const [employees, entries] = await Promise.all([
-      this.prisma.storeEmployee.findMany({
-        where: {
-          storeId: store.id
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              avatarUrl: true,
-              jobTitle: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'asc'
-        }
-      }),
-      this.prisma.scheduleEntry.findMany({
-        where: {
-          storeId: store.id,
-          date: {
-            gte: monthStart,
-            lt: nextMonthStart
-          }
-        },
-        orderBy: [{ date: 'asc' }, { userId: 'asc' }]
-      })
-    ]);
+    const scheduleData = await this.getScheduleRange(store.id, monthStart, nextMonthStart);
 
     return {
-      store: {
-        id: store.id,
-        companyId: store.companyId,
-        name: store.name,
-        city: store.city,
-        address: store.address,
-        activeFrom: store.activeFrom
-      },
+      store: this.mapScheduleStore(store),
       year: dto.year,
       month: dto.month,
       daysInMonth,
-      employees: employees.map((employee) => ({
-        userId: employee.user.id,
-        email: employee.user.email,
-        firstName: employee.user.firstName,
-        lastName: employee.user.lastName,
-        avatarUrl: employee.user.avatarUrl,
-        jobTitle: employee.user.jobTitle
-      })),
-      entries: entries.map((entry) => ({
-        id: entry.id,
-        userId: entry.userId,
-        date: this.formatDate(entry.date),
-        type: entry.type,
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-        comment: entry.comment,
-        createdById: entry.createdById,
-        updatedAt: entry.updatedAt
-      }))
+      employees: scheduleData.employees,
+      entries: scheduleData.entries
+    };
+  }
+
+  async getWeek(actorId: string, dto: GetScheduleWeekDto): Promise<ScheduleWeekResponseDto> {
+    const store = await this.storesService.getStoreForUser(dto.storeId, actorId);
+    const dateInWeek = this.parseDateOnly(dto.week, 'Invalid week date');
+    const { weekStart, nextWeekStart } = this.getWeekBounds(dateInWeek);
+    this.ensureWeekIsAvailable(store.activeFrom, nextWeekStart);
+    const scheduleData = await this.getScheduleRange(store.id, weekStart, nextWeekStart);
+
+    return {
+      store: this.mapScheduleStore(store),
+      week: this.formatDate(dateInWeek),
+      weekStart: this.formatDate(weekStart),
+      weekEnd: this.formatDate(this.addDays(nextWeekStart, -1)),
+      employees: scheduleData.employees,
+      entries: scheduleData.entries
     };
   }
 
@@ -114,48 +77,44 @@ export class ScheduleService {
     const store = await this.storesService.ensureStoreManager(dto.storeId, actorId);
     const { monthStart, nextMonthStart } = this.getMonthBounds(dto.year, dto.month);
     this.ensureMonthIsAvailable(store.activeFrom, nextMonthStart);
-    const uniqueUserIds = [...new Set(dto.entries.map((entry) => entry.userId))];
-
-    if (uniqueUserIds.length > 0) {
-      const assignments = await this.prisma.storeEmployee.findMany({
-        where: {
-          storeId: store.id,
-          userId: {
-            in: uniqueUserIds
-          }
-        },
-        select: {
-          userId: true
-        }
-      });
-
-      const assignedUserIds = new Set(assignments.map((assignment) => assignment.userId));
-      const missingUserId = uniqueUserIds.find((userId) => !assignedUserIds.has(userId));
-
-      if (missingUserId) {
-        throw new BadRequestException(
-          `User ${missingUserId} is not assigned to this store`
-        );
-      }
-    }
-
-    await this.prisma.$transaction(
-      dto.entries.map((entry) =>
-        this.buildScheduleMutation(
-          store.id,
-          actorId,
-          entry,
-          monthStart,
-          nextMonthStart,
-          store.activeFrom
-        )
-      )
+    await this.updateEntriesInRange(
+      store.id,
+      actorId,
+      dto.entries,
+      monthStart,
+      nextMonthStart,
+      store.activeFrom,
+      'month'
     );
 
     return this.getMonth(actorId, {
       storeId: store.id,
       year: dto.year,
       month: dto.month
+    });
+  }
+
+  async updateWeek(
+    actorId: string,
+    dto: UpdateWeeklyScheduleDto
+  ): Promise<ScheduleWeekResponseDto> {
+    const store = await this.storesService.ensureStoreManager(dto.storeId, actorId);
+    const dateInWeek = this.parseDateOnly(dto.week, 'Invalid week date');
+    const { weekStart, nextWeekStart } = this.getWeekBounds(dateInWeek);
+    this.ensureWeekIsAvailable(store.activeFrom, nextWeekStart);
+    await this.updateEntriesInRange(
+      store.id,
+      actorId,
+      dto.entries,
+      weekStart,
+      nextWeekStart,
+      store.activeFrom,
+      'week'
+    );
+
+    return this.getWeek(actorId, {
+      storeId: store.id,
+      week: dto.week
     });
   }
 
@@ -190,18 +149,66 @@ export class ScheduleService {
     });
   }
 
+  private async updateEntriesInRange(
+    storeId: string,
+    actorId: string,
+    entries: ScheduleEntryChangeDto[],
+    rangeStart: Date,
+    rangeEndExclusive: Date,
+    activeFrom: Date,
+    rangeLabel: 'month' | 'week'
+  ): Promise<void> {
+    const uniqueUserIds = [...new Set(entries.map((entry) => entry.userId))];
+
+    if (uniqueUserIds.length > 0) {
+      const assignments = await this.prisma.storeEmployee.findMany({
+        where: {
+          storeId,
+          userId: {
+            in: uniqueUserIds
+          }
+        },
+        select: {
+          userId: true
+        }
+      });
+
+      const assignedUserIds = new Set(assignments.map((assignment) => assignment.userId));
+      const missingUserId = uniqueUserIds.find((userId) => !assignedUserIds.has(userId));
+
+      if (missingUserId) {
+        throw new BadRequestException(`User ${missingUserId} is not assigned to this store`);
+      }
+    }
+
+    await this.prisma.$transaction(
+      entries.map((entry) =>
+        this.buildScheduleMutation(
+          storeId,
+          actorId,
+          entry,
+          rangeStart,
+          rangeEndExclusive,
+          activeFrom,
+          rangeLabel
+        )
+      )
+    );
+  }
+
   private buildScheduleMutation(
     storeId: string,
     actorId: string,
     entry: ScheduleEntryChangeDto,
-    monthStart: Date,
-    nextMonthStart: Date,
-    activeFrom: Date
+    rangeStart: Date,
+    rangeEndExclusive: Date,
+    activeFrom: Date,
+    rangeLabel: 'month' | 'week'
   ) {
     const date = this.parseDateOnly(entry.date);
 
-    if (date < monthStart || date >= nextMonthStart) {
-      throw new BadRequestException('Entry date must belong to the requested month');
+    if (date < rangeStart || date >= rangeEndExclusive) {
+      throw new BadRequestException(`Entry date must belong to the requested ${rangeLabel}`);
     }
 
     this.ensureDateIsAvailable(date, activeFrom);
@@ -241,22 +248,25 @@ export class ScheduleService {
         userId: entry.userId,
         date,
         type: entry.type,
-        startTime: entry.type === ScheduleEntryType.SHIFT ? entry.startTime ?? null : null,
-        endTime: entry.type === ScheduleEntryType.SHIFT ? entry.endTime ?? null : null,
+        startTime: entry.type === ScheduleEntryType.SHIFT ? (entry.startTime ?? null) : null,
+        endTime: entry.type === ScheduleEntryType.SHIFT ? (entry.endTime ?? null) : null,
         comment: entry.comment ?? null,
         createdById: actorId
       },
       update: {
         type: entry.type,
-        startTime: entry.type === ScheduleEntryType.SHIFT ? entry.startTime ?? null : null,
-        endTime: entry.type === ScheduleEntryType.SHIFT ? entry.endTime ?? null : null,
+        startTime: entry.type === ScheduleEntryType.SHIFT ? (entry.startTime ?? null) : null,
+        endTime: entry.type === ScheduleEntryType.SHIFT ? (entry.endTime ?? null) : null,
         comment: entry.comment ?? null,
         createdById: actorId
       }
     });
   }
 
-  private getMonthBounds(year: number, month: number): {
+  private getMonthBounds(
+    year: number,
+    month: number
+  ): {
     monthStart: Date;
     nextMonthStart: Date;
     daysInMonth: number;
@@ -264,10 +274,7 @@ export class ScheduleService {
     const monthStart = new Date(Date.UTC(year, month - 1, 1));
     const nextMonthStart = new Date(Date.UTC(year, month, 1));
 
-    if (
-      monthStart.getUTCFullYear() !== year ||
-      monthStart.getUTCMonth() !== month - 1
-    ) {
+    if (monthStart.getUTCFullYear() !== year || monthStart.getUTCMonth() !== month - 1) {
       throw new BadRequestException('Invalid year or month');
     }
 
@@ -280,22 +287,135 @@ export class ScheduleService {
     };
   }
 
-  private parseDateOnly(value: string): Date {
+  private getWeekBounds(date: Date): {
+    weekStart: Date;
+    nextWeekStart: Date;
+  } {
+    const day = date.getUTCDay();
+    const offsetToMonday = day === 0 ? -6 : 1 - day;
+    const weekStart = this.addDays(date, offsetToMonday);
+    const nextWeekStart = this.addDays(weekStart, 7);
+
+    return {
+      weekStart,
+      nextWeekStart
+    };
+  }
+
+  private parseDateOnly(value: string, errorMessage = 'Invalid entry date'): Date {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new BadRequestException(errorMessage);
+    }
+
     const date = new Date(`${value}T00:00:00.000Z`);
 
-    if (Number.isNaN(date.getTime())) {
-      throw new BadRequestException('Invalid entry date');
+    if (Number.isNaN(date.getTime()) || this.formatDate(date) !== value) {
+      throw new BadRequestException(errorMessage);
     }
 
     return date;
+  }
+
+  private addDays(date: Date, days: number): Date {
+    return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
   }
 
   private formatDate(date: Date): string {
     return date.toISOString().slice(0, 10);
   }
 
+  private async getScheduleRange(
+    storeId: string,
+    rangeStart: Date,
+    rangeEndExclusive: Date
+  ): Promise<{
+    employees: ScheduleEmployeeDto[];
+    entries: ScheduleEntryDto[];
+  }> {
+    const [employees, entries] = await Promise.all([
+      this.prisma.storeEmployee.findMany({
+        where: {
+          storeId
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              jobTitle: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      }),
+      this.prisma.scheduleEntry.findMany({
+        where: {
+          storeId,
+          date: {
+            gte: rangeStart,
+            lt: rangeEndExclusive
+          }
+        },
+        orderBy: [{ date: 'asc' }, { startTime: 'asc' }, { endTime: 'asc' }, { userId: 'asc' }]
+      })
+    ]);
+
+    return {
+      employees: employees.map((employee) => ({
+        userId: employee.user.id,
+        email: employee.user.email,
+        firstName: employee.user.firstName,
+        lastName: employee.user.lastName,
+        avatarUrl: employee.user.avatarUrl,
+        jobTitle: employee.user.jobTitle
+      })),
+      entries: entries.map((entry) => ({
+        id: entry.id,
+        userId: entry.userId,
+        date: this.formatDate(entry.date),
+        type: entry.type,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        comment: entry.comment,
+        createdById: entry.createdById,
+        updatedAt: entry.updatedAt
+      }))
+    };
+  }
+
+  private mapScheduleStore(store: {
+    id: string;
+    companyId: string;
+    name: string;
+    city: string | null;
+    address: string | null;
+    activeFrom: Date;
+  }): ScheduleStoreDto {
+    return {
+      id: store.id,
+      companyId: store.companyId,
+      name: store.name,
+      city: store.city,
+      address: store.address,
+      activeFrom: store.activeFrom
+    };
+  }
+
   private ensureMonthIsAvailable(activeFrom: Date, nextMonthStart: Date): void {
     if (nextMonthStart <= activeFrom) {
+      throw new BadRequestException(
+        `Schedule is available starting from ${this.formatDate(activeFrom)}`
+      );
+    }
+  }
+
+  private ensureWeekIsAvailable(activeFrom: Date, nextWeekStart: Date): void {
+    if (nextWeekStart <= activeFrom) {
       throw new BadRequestException(
         `Schedule is available starting from ${this.formatDate(activeFrom)}`
       );
