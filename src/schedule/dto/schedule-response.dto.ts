@@ -102,3 +102,23 @@ export class ScheduleMonthResponseDto {
   @ApiProperty({ type: ScheduleEntryDto, isArray: true })
   entries!: ScheduleEntryDto[];
 }
+
+export class ScheduleWeekResponseDto {
+  @ApiProperty({ type: ScheduleStoreDto })
+  store!: ScheduleStoreDto;
+
+  @ApiProperty({ example: '2026-03-26' })
+  week!: string;
+
+  @ApiProperty({ example: '2026-03-23' })
+  weekStart!: string;
+
+  @ApiProperty({ example: '2026-03-29' })
+  weekEnd!: string;
+
+  @ApiProperty({ type: ScheduleEmployeeDto, isArray: true })
+  employees!: ScheduleEmployeeDto[];
+
+  @ApiProperty({ type: ScheduleEntryDto, isArray: true })
+  entries!: ScheduleEntryDto[];
+}
