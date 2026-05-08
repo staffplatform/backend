@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException
-} from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
@@ -38,13 +34,11 @@ export class AuthService {
     this.accessTokenSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
     this.refreshTokenSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     this.accessTokenExpiresIn =
-      this.configService.get<NonNullable<JwtSignOptions['expiresIn']>>(
-        'JWT_ACCESS_EXPIRES_IN'
-      ) ?? AuthService.DEFAULT_ACCESS_EXPIRES_IN;
+      this.configService.get<NonNullable<JwtSignOptions['expiresIn']>>('JWT_ACCESS_EXPIRES_IN') ??
+      AuthService.DEFAULT_ACCESS_EXPIRES_IN;
     this.refreshTokenExpiresIn =
-      this.configService.get<NonNullable<JwtSignOptions['expiresIn']>>(
-        'JWT_REFRESH_EXPIRES_IN'
-      ) ?? AuthService.DEFAULT_REFRESH_EXPIRES_IN;
+      this.configService.get<NonNullable<JwtSignOptions['expiresIn']>>('JWT_REFRESH_EXPIRES_IN') ??
+      AuthService.DEFAULT_REFRESH_EXPIRES_IN;
     this.saltRounds = this.configService.get<number>('BCRYPT_SALT_ROUNDS', 10);
   }
 
@@ -63,24 +57,25 @@ export class AuthService {
     };
     tokens: Tokens;
   }> {
+    const email = dto.email.toLowerCase();
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
 
     try {
       const user = await this.usersService.create({
-        email: dto.email.toLowerCase(),
+        email,
         passwordHash,
         firstName: dto.firstName,
         lastName: dto.lastName,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined
       });
 
-      const tokens = await this.generateTokens(user.id, user.email);
+      const tokens = await this.generateTokens(user.id, email);
       await this.storeRefreshTokenHash(user.id, tokens.refreshToken);
 
       return {
         user: {
           id: user.id,
-          email: user.email,
+          email,
           firstName: user.firstName,
           lastName: user.lastName,
           birthDate: user.birthDate,
@@ -116,8 +111,13 @@ export class AuthService {
     };
     tokens: Tokens;
   }> {
-    const user = await this.usersService.findByEmail(dto.email.toLowerCase());
+    const email = dto.email.toLowerCase();
+    const user = await this.usersService.findByEmail(email);
     if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -126,13 +126,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, email);
     await this.storeRefreshTokenHash(user.id, tokens.refreshToken);
 
     return {
       user: {
         id: user.id,
-        email: user.email,
+        email,
         firstName: user.firstName,
         lastName: user.lastName,
         birthDate: user.birthDate,
@@ -158,7 +158,7 @@ export class AuthService {
     }
 
     const user = await this.usersService.findById(payload.sub);
-    if (!user || !user.refreshTokenHash) {
+    if (!user || !user.email || !user.refreshTokenHash) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 

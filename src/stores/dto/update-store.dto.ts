@@ -1,11 +1,12 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDate, IsOptional, IsString } from 'class-validator';
 
-export class CreateStoreDto {
-  @ApiProperty({ example: 'Aviapark' })
+export class UpdateStoreDto {
+  @ApiPropertyOptional({ example: 'Aviapark' })
+  @IsOptional()
   @IsString()
-  name!: string;
+  name?: string;
 
   @ApiPropertyOptional({ example: 'Moscow' })
   @IsOptional()
@@ -17,11 +18,12 @@ export class CreateStoreDto {
   @IsString()
   address?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '2026-03-01',
     description: 'Store becomes schedulable starting from this date'
   })
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
-  activeFrom!: Date;
+  activeFrom?: Date;
 }

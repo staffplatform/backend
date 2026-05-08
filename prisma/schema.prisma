@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum CompanyRole {
+enum StoreRole {
   OWNER
   MANAGER
   EMPLOYEE
@@ -24,6 +24,7 @@ model User {
   email            String   @unique
   passwordHash     String
   firstName        String?
+  middleName       String?
   lastName         String?
   birthDate        DateTime?
   avatarUrl        String?
@@ -35,68 +36,36 @@ model User {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  ownedCompanies        Company[]        @relation("CompanyOwner")
-  companyMemberships    CompanyMember[]
-  storeAssignments      StoreEmployee[]
-  scheduleEntries       ScheduleEntry[]  @relation("EmployeeScheduleEntries")
+  storeAssignments       StoreEmployee[]
+  scheduleEntries        ScheduleEntry[]  @relation("EmployeeScheduleEntries")
   createdScheduleEntries ScheduleEntry[] @relation("ScheduleEntryCreatedBy")
 
   @@map("users")
 }
 
-model Company {
-  id        String   @id @default(uuid())
-  name      String
-  ownerId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  owner   User            @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members CompanyMember[]
-  stores  Store[]
-
-  @@map("companies")
-}
-
-model CompanyMember {
-  id        String      @id @default(uuid())
-  companyId String
-  userId    String      @unique
-  role      CompanyRole @default(EMPLOYEE)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([companyId, userId])
-  @@index([userId])
-  @@map("company_members")
-}
-
 model Store {
-  id        String   @id @default(uuid())
-  companyId String
-  name      String
-  city      String?
-  address   String?
+  id         String   @id @default(uuid())
+  name       String
+  city       String?
+  address    String?
   activeFrom DateTime @db.Date
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employees       StoreEmployee[]
   scheduleEntries ScheduleEntry[]
 
-  @@index([companyId])
   @@map("stores")
 }
 
 model StoreEmployee {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   storeId    String
   userId     String
-  createdAt DateTime @default(now())
+  role       StoreRole @default(EMPLOYEE)
+  activeFrom DateTime? @db.Date
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)

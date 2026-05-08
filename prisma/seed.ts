@@ -1,4 +1,4 @@
-import { CompanyRole, PrismaClient, ScheduleEntryType } from '@prisma/client';
+import { PrismaClient, ScheduleEntryType, StoreRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -9,7 +9,7 @@ const seedUser = {
   firstName: 'Ivan',
   lastName: 'Petrov',
   birthDate: new Date('1992-07-14'),
-  avatarUrl: 'https://cdn.example.com/avatars/ivan-petrov.jpg',
+  avatarUrl: null,
   jobTitle: 'Barista',
   workCity: 'Moscow',
   workAddress: 'ул. Ленина, 10',
@@ -23,12 +23,12 @@ const seedEmployees = [
     firstName: 'Anna',
     lastName: 'Smirnova',
     birthDate: new Date('1990-03-18'),
-    avatarUrl: 'https://cdn.example.com/avatars/anna-smirnova.jpg',
+    avatarUrl: null,
     jobTitle: 'Store Manager',
     workCity: 'Moscow',
     workAddress: 'ул. Тверская, 7',
     companyAddress: 'ул. Тверская, 7, офис 12',
-    companyRole: CompanyRole.MANAGER,
+    storeRole: StoreRole.MANAGER,
     storeNames: ['Acme Tverskaya', 'Acme Arbat']
   },
   {
@@ -37,12 +37,12 @@ const seedEmployees = [
     firstName: 'Maria',
     lastName: 'Ivanova',
     birthDate: new Date('1998-09-05'),
-    avatarUrl: 'https://cdn.example.com/avatars/maria-ivanova.jpg',
+    avatarUrl: null,
     jobTitle: 'Barista',
     workCity: 'Moscow',
     workAddress: 'ул. Тверская, 7',
     companyAddress: 'ул. Тверская, 7, офис 12',
-    companyRole: CompanyRole.EMPLOYEE,
+    storeRole: StoreRole.EMPLOYEE,
     storeNames: ['Acme Tverskaya', 'Acme Arbat']
   },
   {
@@ -51,12 +51,12 @@ const seedEmployees = [
     firstName: 'Oleg',
     lastName: 'Sidorov',
     birthDate: new Date('1995-11-12'),
-    avatarUrl: 'https://cdn.example.com/avatars/oleg-sidorov.jpg',
+    avatarUrl: null,
     jobTitle: 'Cashier',
     workCity: 'Moscow',
     workAddress: 'ул. Арбат, 12',
     companyAddress: 'ул. Тверская, 7, офис 12',
-    companyRole: CompanyRole.EMPLOYEE,
+    storeRole: StoreRole.EMPLOYEE,
     storeNames: ['Acme Tverskaya']
   },
   {
@@ -65,12 +65,12 @@ const seedEmployees = [
     firstName: 'Svetlana',
     lastName: 'Morozova',
     birthDate: new Date('1997-04-23'),
-    avatarUrl: 'https://cdn.example.com/avatars/svetlana-morozova.jpg',
+    avatarUrl: null,
     jobTitle: 'Senior Barista',
     workCity: 'Moscow',
     workAddress: 'ул. Арбат, 12',
     companyAddress: 'ул. Тверская, 7, офис 12',
-    companyRole: CompanyRole.EMPLOYEE,
+    storeRole: StoreRole.EMPLOYEE,
     storeNames: ['Acme Sokolniki']
   },
   {
@@ -79,12 +79,12 @@ const seedEmployees = [
     firstName: 'Pavel',
     lastName: 'Kozlov',
     birthDate: new Date('1989-01-30'),
-    avatarUrl: 'https://cdn.example.com/avatars/pavel-kozlov.jpg',
+    avatarUrl: null,
     jobTitle: 'Store Manager',
     workCity: 'Moscow',
     workAddress: 'Сокольническая площадь, 4',
     companyAddress: 'ул. Тверская, 7, офис 12',
-    companyRole: CompanyRole.MANAGER,
+    storeRole: StoreRole.MANAGER,
     storeNames: ['Acme Sokolniki']
   },
   {
@@ -93,19 +93,15 @@ const seedEmployees = [
     firstName: 'Irina',
     lastName: 'Volkova',
     birthDate: new Date('2000-06-14'),
-    avatarUrl: 'https://cdn.example.com/avatars/irina-volkova.jpg',
+    avatarUrl: null,
     jobTitle: 'Barista',
     workCity: 'Moscow',
     workAddress: 'Сокольническая площадь, 4',
     companyAddress: 'ул. Тверская, 7, офис 12',
-    companyRole: CompanyRole.EMPLOYEE,
+    storeRole: StoreRole.EMPLOYEE,
     storeNames: ['Acme Sokolniki']
   }
 ] as const;
-
-const seedCompany = {
-  name: 'Acme Staff Platform'
-};
 
 const seedStores = [
   {
@@ -332,53 +328,13 @@ async function main(): Promise<void> {
     }
   });
 
-  const existingCompany = await prisma.company.findFirst({
-    where: {
-      ownerId: user.id,
-      name: seedCompany.name
-    },
-    select: {
-      id: true
-    }
-  });
-
-  const company = existingCompany
-    ? await prisma.company.update({
-        where: { id: existingCompany.id },
-        data: { name: seedCompany.name }
-      })
-    : await prisma.company.create({
-        data: {
-          name: seedCompany.name,
-          ownerId: user.id
-        }
-      });
-
-  await prisma.companyMember.upsert({
-    where: {
-      companyId_userId: {
-        companyId: company.id,
-        userId: user.id
-      }
-    },
-    update: {
-      role: CompanyRole.OWNER
-    },
-    create: {
-      companyId: company.id,
-      userId: user.id,
-      role: CompanyRole.OWNER
-    }
-  });
-
   const scheduleDates = seededScheduleMonths.flatMap(({ year, month }) =>
     getMonthDates(year, month)
   );
   const stores = await Promise.all(
-    seedStores.map(async (seedStore, index) => {
+    seedStores.map(async (seedStore) => {
       const existingStore = await prisma.store.findFirst({
         where: {
-          companyId: company.id,
           name: seedStore.name
         },
         select: {
@@ -398,7 +354,6 @@ async function main(): Promise<void> {
           })
         : await prisma.store.create({
             data: {
-              companyId: company.id,
               name: seedStore.name,
               city: seedStore.city,
               address: seedStore.address,
@@ -413,10 +368,13 @@ async function main(): Promise<void> {
             userId: user.id
           }
         },
-        update: {},
+        update: {
+          role: StoreRole.OWNER
+        },
         create: {
           storeId: store.id,
-          userId: user.id
+          userId: user.id,
+          role: StoreRole.OWNER
         }
       });
 
@@ -437,7 +395,7 @@ async function main(): Promise<void> {
   const allUsers = [
     {
       ...seedUser,
-      companyRole: CompanyRole.OWNER,
+      storeRole: StoreRole.OWNER,
       storeNames: seedStores.map((store) => store.name)
     },
     ...seedEmployees
@@ -447,7 +405,7 @@ async function main(): Promise<void> {
     const employeePasswordHash =
       employee.email === seedUser.email ? passwordHash : await bcrypt.hash(employee.password, 10);
 
-    const companyUser = await prisma.user.upsert({
+    const storeUser = await prisma.user.upsert({
       where: { email: employee.email },
       update: {
         passwordHash: employeePasswordHash,
@@ -474,23 +432,6 @@ async function main(): Promise<void> {
       }
     });
 
-    await prisma.companyMember.upsert({
-      where: {
-        companyId_userId: {
-          companyId: company.id,
-          userId: companyUser.id
-        }
-      },
-      update: {
-        role: employee.companyRole
-      },
-      create: {
-        companyId: company.id,
-        userId: companyUser.id,
-        role: employee.companyRole
-      }
-    });
-
     for (const storeName of employee.storeNames) {
       const store = storeByName.get(storeName);
 
@@ -502,13 +443,16 @@ async function main(): Promise<void> {
         where: {
           storeId_userId: {
             storeId: store.id,
-            userId: companyUser.id
+            userId: storeUser.id
           }
         },
-        update: {},
+        update: {
+          role: employee.storeRole
+        },
         create: {
           storeId: store.id,
-          userId: companyUser.id
+          userId: storeUser.id,
+          role: employee.storeRole
         }
       });
 
@@ -527,7 +471,7 @@ async function main(): Promise<void> {
 
           await upsertScheduleEntry({
             storeId: store.id,
-            userId: companyUser.id,
+            userId: storeUser.id,
             date,
             createdById: user.id,
             type: scheduleEntry.type,
@@ -554,7 +498,6 @@ async function main(): Promise<void> {
 
   console.log('Seed completed');
   console.log(`User: ${seedUser.email} / ${seedUser.password}`);
-  console.log(`Company: ${company.name}`);
   console.log(`Stores: ${stores.map((store) => store.name).join(', ')}`);
   console.log(`Store employee counts: ${storeEmployeeCounts.join(', ')}`);
   console.log(

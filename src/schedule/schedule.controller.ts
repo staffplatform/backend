@@ -13,6 +13,7 @@ import {
   ApiBearerAuth,
   ApiNoContentResponse,
   ApiOkResponse,
+  ApiOperation,
   ApiTags
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -39,12 +40,16 @@ export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
 
   @Get('types')
+  @ApiOperation({ summary: 'Получить доступные типы записей расписания' })
   @ApiOkResponse({ type: ScheduleEntryTypesResponseDto })
   getEntryTypes(): ScheduleEntryTypesResponseDto {
     return this.scheduleService.getEntryTypes();
   }
 
   @Get('month')
+  @ApiOperation({
+    summary: 'Получить месячное расписание магазина, доступного текущему пользователю'
+  })
   @ApiOkResponse({ type: ScheduleMonthResponseDto })
   async getMonth(
     @GetCurrentUser() currentUser: RequestUser,
@@ -54,6 +59,9 @@ export class ScheduleController {
   }
 
   @Get('week')
+  @ApiOperation({
+    summary: 'Получить недельное расписание магазина, доступного текущему пользователю'
+  })
   @ApiOkResponse({ type: ScheduleWeekResponseDto })
   async getWeek(
     @GetCurrentUser() currentUser: RequestUser,
@@ -63,6 +71,7 @@ export class ScheduleController {
   }
 
   @Put('month')
+  @ApiOperation({ summary: 'Обновить месячное расписание магазина с ролью владелец или менеджер' })
   @ApiOkResponse({ type: ScheduleMonthResponseDto })
   async updateMonth(
     @GetCurrentUser() currentUser: RequestUser,
@@ -72,6 +81,7 @@ export class ScheduleController {
   }
 
   @Put('week')
+  @ApiOperation({ summary: 'Обновить недельное расписание магазина с ролью владелец или менеджер' })
   @ApiOkResponse({ type: ScheduleWeekResponseDto })
   async updateWeek(
     @GetCurrentUser() currentUser: RequestUser,
@@ -82,6 +92,7 @@ export class ScheduleController {
 
   @Delete('entry')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Удалить запись расписания магазина с ролью владелец или менеджер' })
   @ApiNoContentResponse()
   async deleteEntry(
     @GetCurrentUser() currentUser: RequestUser,

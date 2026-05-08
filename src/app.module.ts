@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module';
-import { CompaniesModule } from './companies/companies.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { ScheduleModule } from './schedule/schedule.module';
@@ -14,11 +13,11 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
-        NODE_ENV: Joi.string()
-          .valid('development', 'production', 'test')
-          .default('development'),
+        NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
         PORT: Joi.number().default(3000),
-        DATABASE_URL: Joi.string().uri({ scheme: ['postgres', 'postgresql'] }).required(),
+        DATABASE_URL: Joi.string()
+          .uri({ scheme: ['postgres', 'postgresql'] })
+          .required(),
         JWT_ACCESS_SECRET: Joi.string().min(16).required(),
         JWT_REFRESH_SECRET: Joi.string().min(16).required(),
         JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
@@ -30,7 +29,6 @@ import { UsersModule } from './users/users.module';
     DatabaseModule,
     AuthModule,
     UsersModule,
-    CompaniesModule,
     StoresModule,
     ScheduleModule,
     HealthModule

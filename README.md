@@ -116,14 +116,12 @@ Test seed data:
 - user: `employee@example.com`
 - password: `StrongPass123`
 - jobTitle: `Barista`
-- company: `Acme Staff Platform`
 - store: `Acme Tverskaya`
 
 Current access model:
 
-- one user belongs to one company
-- one user can be assigned to multiple stores within that company
-- `GET /api/companies/current` returns the current user's company
+- one user can belong to multiple stores
+- store roles are `OWNER`, `MANAGER`, `EMPLOYEE`
 - `GET /api/stores/my` returns the current user's stores
 
 ## 5. API endpoints
@@ -136,9 +134,12 @@ Global prefix: `/api`
 - `POST /api/auth/logout` (Bearer access token)
 - `GET /api/users/me` (Bearer access token)
 - `PATCH /api/users/me` (Bearer access token)
-- `GET /api/companies` (Bearer access token)
-- `GET /api/companies/current` (Bearer access token)
+- `POST /api/stores` (Bearer access token)
 - `GET /api/stores/my` (Bearer access token)
+- `PATCH /api/stores/:storeId` (Bearer access token, owner only)
+- `DELETE /api/stores/:storeId` (Bearer access token, owner only)
+- `POST /api/stores/:storeId/employees` (Bearer access token)
+- `GET /api/stores/:storeId/employees` (Bearer access token)
 - `GET /api/schedule/month` (Bearer access token)
 - `GET /api/schedule/week` (Bearer access token)
 - `PUT /api/schedule/month` (Bearer access token)
@@ -216,7 +217,7 @@ curl -X PATCH http://localhost:3000/api/users/me \
 ### Create store
 
 ```bash
-curl -X POST http://localhost:3000/api/companies/<COMPANY_ID>/stores \
+curl -X POST http://localhost:3000/api/stores \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -225,6 +226,53 @@ curl -X POST http://localhost:3000/api/companies/<COMPANY_ID>/stores \
     "address":"Ходынский бульвар, 4",
     "activeFrom":"2026-04-01"
   }'
+```
+
+### My stores
+
+```bash
+curl -X GET http://localhost:3000/api/stores/my \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+### Update store
+
+```bash
+curl -X PATCH http://localhost:3000/api/stores/<STORE_ID> \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name":"Aviapark Updated",
+    "city":"Moscow",
+    "address":"Ходынский бульвар, 4",
+    "activeFrom":"2026-04-01"
+  }'
+```
+
+### Delete store
+
+```bash
+curl -X DELETE http://localhost:3000/api/stores/<STORE_ID> \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+### Add employee to store
+
+```bash
+curl -X POST http://localhost:3000/api/stores/<STORE_ID>/employees \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId":"<USER_ID>",
+    "role":"EMPLOYEE"
+  }'
+```
+
+### Store employees
+
+```bash
+curl -X GET http://localhost:3000/api/stores/<STORE_ID>/employees \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
 ### Schedule month
