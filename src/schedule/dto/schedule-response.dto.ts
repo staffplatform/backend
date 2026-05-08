@@ -19,9 +19,6 @@ export class ScheduleStoreDto {
   id!: string;
 
   @ApiProperty()
-  companyId!: string;
-
-  @ApiProperty()
   name!: string;
 
   @ApiPropertyOptional()
@@ -38,11 +35,14 @@ export class ScheduleEmployeeDto {
   @ApiProperty()
   userId!: string;
 
-  @ApiProperty()
-  email!: string;
+  @ApiPropertyOptional()
+  email!: string | null;
 
   @ApiPropertyOptional()
   firstName!: string | null;
+
+  @ApiPropertyOptional()
+  middleName!: string | null;
 
   @ApiPropertyOptional()
   lastName!: string | null;

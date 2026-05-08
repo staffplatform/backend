@@ -12,6 +12,11 @@ export class UpdateProfileDto {
   @IsString()
   lastName?: string;
 
+  @ApiPropertyOptional({ example: 'Michael' })
+  @IsOptional()
+  @IsString()
+  middleName?: string;
+
   @ApiPropertyOptional({
     example: '1990-01-20',
     description: 'Дата рождения в формате ISO 8601 (YYYY-MM-DD)'

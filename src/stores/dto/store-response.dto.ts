@@ -1,11 +1,9 @@
+import { StoreRole } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class StoreDto {
   @ApiProperty()
   id!: string;
-
-  @ApiProperty()
-  companyId!: string;
 
   @ApiProperty()
   name!: string;
@@ -33,17 +31,26 @@ export class StoreEmployeeDto {
   @ApiProperty()
   userId!: string;
 
-  @ApiProperty()
-  email!: string;
+  @ApiPropertyOptional()
+  email!: string | null;
 
   @ApiPropertyOptional()
   firstName!: string | null;
+
+  @ApiPropertyOptional()
+  middleName!: string | null;
 
   @ApiPropertyOptional()
   lastName!: string | null;
 
   @ApiPropertyOptional()
   avatarUrl!: string | null;
+
+  @ApiProperty({ enum: StoreRole })
+  role!: StoreRole;
+
+  @ApiPropertyOptional({ example: '2026-06-01' })
+  activeFrom!: Date | null;
 
   @ApiProperty()
   assignedAt!: Date;

@@ -1,14 +1,38 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { StoreRole } from '@prisma/client';
+
+export class UserStoreAssignmentDto {
+  @ApiProperty()
+  storeId!: string;
+
+  @ApiProperty()
+  storeName!: string;
+
+  @ApiPropertyOptional()
+  storeCity!: string | null;
+
+  @ApiProperty({ enum: StoreRole })
+  role!: StoreRole;
+
+  @ApiPropertyOptional({ example: '2026-06-01' })
+  activeFrom!: Date | null;
+
+  @ApiProperty()
+  assignedAt!: Date;
+}
 
 export class UserProfileDto {
   @ApiProperty()
   id!: string;
 
-  @ApiProperty()
-  email!: string;
+  @ApiPropertyOptional()
+  email!: string | null;
 
   @ApiPropertyOptional()
   firstName?: string | null;
+
+  @ApiPropertyOptional()
+  middleName?: string | null;
 
   @ApiPropertyOptional()
   lastName?: string | null;
@@ -34,6 +58,9 @@ export class UserProfileDto {
 
   @ApiPropertyOptional({ example: 'ул. Тверская, 7, офис 12' })
   companyAddress?: string | null;
+
+  @ApiPropertyOptional({ type: UserStoreAssignmentDto, isArray: true })
+  storeAssignments?: UserStoreAssignmentDto[];
 
   @ApiProperty()
   createdAt!: Date;

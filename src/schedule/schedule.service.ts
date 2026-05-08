@@ -343,6 +343,7 @@ export class ScheduleService {
               id: true,
               email: true,
               firstName: true,
+              middleName: true,
               lastName: true,
               avatarUrl: true,
               jobTitle: true
@@ -370,6 +371,7 @@ export class ScheduleService {
         userId: employee.user.id,
         email: employee.user.email,
         firstName: employee.user.firstName,
+        middleName: employee.user.middleName,
         lastName: employee.user.lastName,
         avatarUrl: employee.user.avatarUrl,
         jobTitle: employee.user.jobTitle
@@ -390,7 +392,6 @@ export class ScheduleService {
 
   private mapScheduleStore(store: {
     id: string;
-    companyId: string;
     name: string;
     city: string | null;
     address: string | null;
@@ -398,7 +399,6 @@ export class ScheduleService {
   }): ScheduleStoreDto {
     return {
       id: store.id,
-      companyId: store.companyId,
       name: store.name,
       city: store.city,
       address: store.address,

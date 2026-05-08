@@ -40,7 +40,9 @@ async function bootstrap(): Promise<void> {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('StaffPlatform API')
-    .setDescription('Authentication and users API for StaffPlatform')
+    .setDescription(
+      'API для магазинов, сотрудников, расписания, аутентификации и профиля пользователя'
+    )
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();

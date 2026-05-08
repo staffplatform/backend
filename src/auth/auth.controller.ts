@@ -8,11 +8,7 @@ import {
 } from '@nestjs/swagger';
 import { GetCurrentUser } from '../common/decorators/get-current-user.decorator';
 import { RequestUser } from '../common/interfaces/request-with-user.interface';
-import {
-  AuthResponseDto,
-  LogoutResponseDto,
-  RefreshResponseDto
-} from './dto/auth-response.dto';
+import { AuthResponseDto, LogoutResponseDto, RefreshResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
